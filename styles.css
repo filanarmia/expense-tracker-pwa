@@ -50,6 +50,14 @@ body {
 .chart-container { min-height: 360px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; position: relative; }
 .chart-container .loading, .chart-container .error { text-align: center; margin-top: 2rem; opacity: 0.8; }
 
+/* Fix canvas sizing to prevent runaway growth */
+#weekly-chart { height: 260px !important; }
+#category-pie-chart { height: 240px !important; }
+#trend-line-chart { height: 260px !important; }
+.monthly-charts { display: grid; gap: 1rem; }
+.monthly-charts .chart-section { height: 280px; }
+.monthly-charts .chart-section canvas { display: block; width: 100% !important; height: 100% !important; }
+
 /* Daily list */
 .daily-summary { margin-bottom: 1rem; }
 .total-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 1rem; border-radius: 12px; }

@@ -2,6 +2,8 @@
 class ChartManager {
   constructor() {
     this.currentChart = null;
+    this.pieChart = null;
+    this.lineChart = null;
     this.chartColors = [
       '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
       '#F97316', '#06B6D4', '#84CC16', '#EC4899', '#6B7280'
@@ -13,6 +15,14 @@ class ChartManager {
     if (this.currentChart) {
       this.currentChart.destroy();
       this.currentChart = null;
+    }
+    if (this.pieChart) {
+      this.pieChart.destroy();
+      this.pieChart = null;
+    }
+    if (this.lineChart) {
+      this.lineChart.destroy();
+      this.lineChart = null;
     }
   }
 
@@ -178,7 +188,7 @@ class ChartManager {
     const categories = Object.keys(stats.categoryTotals);
     const amounts = Object.values(stats.categoryTotals);
     
-    new Chart(ctx, {
+    this.pieChart = new Chart(ctx, {
       type: 'doughnut',
       data: {
         labels: categories,
@@ -218,7 +228,7 @@ class ChartManager {
     const ctx = document.getElementById('trend-line-chart').getContext('2d');
     const trendData = this.prepareTrendData(expenses);
     
-    new Chart(ctx, {
+    this.lineChart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: trendData.labels,
