@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Expenses">
+  
+  <title>Expense Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1>💰 Expenses</h1>
+        <div class="header-actions">
+          <button id="theme-toggle" class="icon-btn" title="Toggle theme">🌙</button>
+          <button id="export-btn" class="icon-btn" title="Export data">📤</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Period Toggle -->
+    <div class="period-toggle">
+      <button class="period-btn active" data-period="day">Day</button>
+      <button class="period-btn" data-period="week">Week</button>
+      <button class="period-btn" data-period="month">Month</button>
+    </div>
+
+    <!-- Chart Container -->
+    <div id="chart-container" class="chart-container">
+      <div class="loading">Loading...</div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <a href="add.html" class="fab" title="Add expense">+</a>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Export Data</h3>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <button id="export-csv" class="export-btn">Export as CSV</button>
+          <button id="export-json" class="export-btn">Export as JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="storage.js"></script>
+  <script src="charts.js"></script>
+  
+  <script>
+    let currentPeriod = 'day';
+
+    // Initialize app
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        await storage.init();
+        await loadTheme();
+        await updateView();
+        setupEventListeners();
+        
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('service-worker.js');
+        }
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+        document.getElementById('chart-container').innerHTML = 
+          '<div class="error">Failed to load data</div>';
+      }
+    });
+
+    // Setup event listeners
+    function setupEventListeners() {
+      // Period toggle
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          currentPeriod = e.target.dataset.period;
+          await updateView();
+        });
+      });
+
+      // Theme toggle
+      document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+      // Export modal
+      document.getElementById('export-btn').addEventListener('click', () => {
+        document.getElementById('export-modal').style.display = 'flex';
+      });
+
+      document.querySelector('.close-btn').addEventListener('click', () => {
+        document.getElementById('export-modal').style.display = 'none';
+      });
+
+      // Export buttons
+      document.getElementById('export-csv').addEventListener('click', async () => {
+        const csv = await storage.exportCSV();
+        storage.downloadFile(csv, `expenses-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+        document.getElementById('export-modal').style.display = 'none';
+      });
+
+      document.getElementById('export-json').addEventListener('click', async () => {
+        const json = await storage.exportJSON();
+        storage.downloadFile(json, `expenses-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+        document.getElementById('export-modal').style.display = 'none';
+      });
+
+      // Close modal on background click
+      document.getElementById('export-modal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+          e.target.style.display = 'none';
+        }
+      });
+    }
+
+    // Update view based on current period
+    async function updateView() {
+      try {
+        const expenses = await storage.getExpenses(currentPeriod);
+        chartManager.destroyCurrentChart();
+
+        switch (currentPeriod) {
+          case 'day':
+            await chartManager.createDailyView(expenses);
+            break;
+          case 'week':
+            await chartManager.createWeeklyChart(expenses);
+            break;
+          case 'month':
+            await chartManager.createMonthlyCharts(expenses);
+            break;
+        }
+      } catch (error) {
+        console.error('Failed to update view:', error);
+        document.getElementById('chart-container').innerHTML = 
+          '<div class="error">Failed to load expenses</div>';
+      }
+    }
+
+    // Delete expense function (called from charts.js)
+    async function deleteExpense(id) {
+      if (confirm('Delete this expense?')) {
+        try {
+          await storage.deleteExpense(id);
+          await updateView();
+        } catch (error) {
+          console.error('Failed to delete expense:', error);
+          alert('Failed to delete expense');
+        }
+      }
+    }
+
+    // Theme management
+    async function loadTheme() {
+      const theme = await storage.getTheme();
+      document.body.className = theme;
+      document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+
+    async function toggleTheme() {
+      const currentTheme = document.body.className;
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      
+      document.body.className = newTheme;
+      document.getElementById('theme-toggle').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+      
+      await storage.setTheme(newTheme);
+    }
+
+    // Refresh data when page becomes visible (for quick-add integration)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        updateView();
+      }
+    });
+  </script>
+</body>
+</html>

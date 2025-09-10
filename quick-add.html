@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <title>Quick Add Expense</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+  <div class="container">
+    <div class="quick-add-container">
+      <div id="loading-state" class="quick-add-state">
+        <div class="spinner"></div>
+        <h2>Saving expense...</h2>
+        <p>Please wait while we process your request.</p>
+      </div>
+
+      <div id="success-state" class="quick-add-state" style="display: none;">
+        <div class="success-icon">✅</div>
+        <h2>Expense Saved!</h2>
+        <div id="expense-details" class="expense-details"></div>
+        <p>Redirecting to dashboard...</p>
+      </div>
+
+      <div id="error-state" class="quick-add-state" style="display: none;">
+        <div class="error-icon">❌</div>
+        <h2>Failed to Save</h2>
+        <p id="error-message">Something went wrong. Please try again.</p>
+        <div class="quick-add-actions">
+          <a href="add.html" class="primary-btn">Add Manually</a>
+          <a href="index.html" class="secondary-btn">Go to Dashboard</a>
+        </div>
+      </div>
+
+      <div id="missing-params-state" class="quick-add-state" style="display: none;">
+        <div class="warning-icon">⚠️</div>
+        <h2>Missing Information</h2>
+        <p>Required parameters are missing. Please use the manual add form.</p>
+        <div class="quick-add-actions">
+          <a href="add.html" class="primary-btn">Add Manually</a>
+          <a href="index.html" class="secondary-btn">Go to Dashboard</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="storage.js"></script>
+  
+  <script>
+    // Initialize app and process quick-add
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        await storage.init();
+        await processQuickAdd();
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+        showError('Failed to initialize the app');
+      }
+    });
+
+    // Process the quick-add request
+    async function processQuickAdd() {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Get parameters from URL
+      const amount = urlParams.get('amount');
+      const note = urlParams.get('note') || '';
+      const category = urlParams.get('category') || 'Other';
+
+      // Validate required parameters
+      if (!amount || isNaN(parseFloat(amount))) {
+        showMissingParams();
+        return;
+      }
+
+      try {
+        // Save the expense
+        await storage.addExpense(amount, note, category);
+        
+        // Show success state
+        showSuccess({
+          amount: parseFloat(amount),
+          note: note,
+          category: category
+        });
+        
+        // Redirect after 2 seconds
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 2000);
+
+      } catch (error) {
+        console.error('Failed to save expense:', error);
+        showError('Failed to save the expense. Please try again.');
+      }
+    }
+
+    // Show success state
+    function showSuccess(expense) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('success-state').style.display = 'block';
+      
+      const detailsElement = document.getElementById('expense-details');
+      detailsElement.innerHTML = `
+        <div class="expense-summary">
+          <div class="expense-amount">RM${expense.amount.toFixed(2)}</div>
+          <div class="expense-category">${expense.category}</div>
+          ${expense.note ? `<div class="expense-note">${expense.note}</div>` : ''}
+          <div class="expense-time">${new Date().toLocaleString()}</div>
+        </div>
+      `;
+    }
+
+    // Show error state
+    function showError(message) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('error-state').style.display = 'block';
+      document.getElementById('error-message').textContent = message;
+    }
+
+    // Show missing parameters state
+    function showMissingParams() {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('missing-params-state').style.display = 'block';
+    }
+
+    // Handle navigation events (back button, etc.)
+    window.addEventListener('beforeunload', () => {
+      // Cancel any ongoing operations if needed
+    });
+  </script>
+
+  <style>
+    .quick-add-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .quick-add-state {
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .quick-add-state h2 {
+      margin: 1rem 0 0.5rem 0;
+      font-size: 1.5rem;
+    }
+
+    .quick-add-state p {
+      margin: 0.5rem 0;
+      opacity: 0.8;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(59, 130, 246, 0.2);
+      border-left-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem auto;
+    }
+
+    .success-icon,
+    .error-icon,
+    .warning-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .expense-summary {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1rem 0;
+      text-align: left;
+    }
+
+    .expense-amount {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--primary-color);
+    }
+
+    .expense-category {
+      font-weight: 500;
+      margin: 0.5rem 0;
+    }
+
+    .expense-note {
+      opacity: 0.7;
+      margin: 0.5rem 0;
+      font-style: italic;
+    }
+
+    .expense-time {
+      font-size: 0.85rem;
+      opacity: 0.6;
+      margin-top: 0.5rem;
+    }
+
+    .quick-add-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      justify-content: center;
+    }
+
+    .quick-add-actions .primary-btn,
+    .quick-add-actions .secondary-btn {
+      flex: 1;
+      max-width: 150px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Dark theme adjustments */
+    .dark .expense-summary {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+    }
+  </style>
+</body>
+</html>
